@@ -2,5 +2,5 @@
 !README.md
 !.gitignore
 !src
-!src/*
+!src/*.v
 !_CoqProject
