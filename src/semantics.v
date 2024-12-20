@@ -29,14 +29,40 @@ Fixpoint eval_Bexp (b : Bexp) (s : State) : bool :=
 (* We define semantics as a relation as we cannot encode unbounded loops *)
 (* Inductive big_step  *)
 Inductive big_step `{EqDec Var} : Prog -> State -> State -> Prop :=
-| Rskip (s : State) : big_step skip s s
-| Rass (s : State) (v : Var) (a : Aexp) :
+| Bskip (s : State) : big_step skip s s
+| Bass (s : State) (v : Var) (a : Aexp) :
     big_step (ass v a) s (fun x => if x == v then (eval_Aexp a s) else s x)
-| Rseq (s1 s2 s3 : State) (c1 c2 : Prog) (h : big_step c1 s1 s2) : big_step (seq c1 c2) s1 s3
-| RiteT (s1 s2 : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s1 = true)
+| Bseq (s1 s2 s3 : State) (c1 c2 : Prog) (h : big_step c1 s1 s2) : big_step (seq c1 c2) s1 s3
+| BiteT (s1 s2 : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s1 = true)
     (h : big_step c1 s1 s2) : big_step (ite b c1 c2) s1 s2
-| RiteF (s1 s2 : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s1 = false)
+| BiteF (s1 s2 : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s1 = false)
     (h : big_step c2 s1 s2) : big_step (ite b c1 c2) s1 s2
-| RwhileT (s1 s2 s3 : State) (b : Bexp) (c : Prog) (hb : eval_Bexp b s1 = true)
+| BwhileT (s1 s2 s3 : State) (b : Bexp) (c : Prog) (hb : eval_Bexp b s1 = true)
     (h1 : big_step c s1 s2) (h2 : big_step (while b c) s2 s3) : big_step (while b c) s1 s3
-| RwhileF (s : State) (b : Bexp) (c : Prog) (hb : eval_Bexp b s = false) : big_step (while b c) s s.
+| BwhileF (s : State) (b : Bexp) (c : Prog) (hb : eval_Bexp b s = false) : big_step (while b c) s s.
+
+
+(* Small-step semantics *)
+Inductive small_step `{EqDec Var} : (Prog * State) -> (Prog * State) -> Prop :=
+| Sskip (s : State) : small_step (skip, s) (skip, s)
+| Sass (s : State) (v : Var) (a : Aexp) :
+    small_step (ass v a, s) (skip, fun x => if x == v then (eval_Aexp a s) else s x)
+| SseqSkip (s1 s2 : State) (c1 c2 : Prog) (h : small_step (c1, s1) (skip, s2)) :
+    small_step (seq c1 c2, s1) (c2, s2)
+| Sseq (s1 s2 : State) (c1 c1' c2 : Prog) (h : small_step (c1, s1) (c1', s2)) (h' : c1' <> skip) :
+    small_step (seq c1 c2, s1) (seq c1' c2, s2)
+| RiteT (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = true) :
+    small_step (ite b c1 c2, s) (c1, s)
+| RiteF (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = false) :
+    small_step (ite b c1 c2, s) (c2, s)
+| RwhileT (s : State) (b : Bexp) (c c : Prog) (hb : eval_Bexp b s = true) :
+    small_step (while b c, s) (seq c (while b c), s)
+| RwhileF (s : State) (b : Bexp) (c c : Prog) (hb : eval_Bexp b s = false) :
+    small_step (while b c, s) (skip, s).
+
+Inductive small_steps `{EqDec Var} : Prog -> State -> State -> Prop :=
+| Term (s : State) : small_steps skip s s
+| Step (s1 s2 s3 : State) (c1 c2 : Prog) (h1 : small_step (c1, s1) (c2, s2))
+    (h2 : small_steps c2 s2 s3) : small_steps c1 s1 s3.
+
+Theorem imp_small_iff_big `{EqDec Var} : forall c s1 s2, big_step c s1 s2 <-> small_steps c s1 s2.
