@@ -43,6 +43,10 @@ Inductive small_step `{EqDec Var} : (Prog * State) -> (Prog * State) -> Prop :=
 | RwhileF (s : State) (b : Bexp) (c c : Prog) (hb : eval_Bexp b s = false) :
     small_step (while b c, s) (skip, s).
 
+
+(* We need to count skips otherwise we get weird programs like (skip ; skip) ; skip which need 0 steps
+   Maybe just do stupid case distinctions... *)
+
 Inductive small_steps `{EqDec Var} : Prog -> State -> State -> Prop :=
 | Term (s : State) : small_steps skip s s
 | Step (s1 s2 s3 : State) (c1 c2 : Prog) (h1 : small_step (c1, s1) (c2, s2))
@@ -80,6 +84,7 @@ Axiom strong_induction:
 forall P : nat -> Prop,
 (forall n : nat, (forall k : nat, (k < n -> P k)) -> P n) ->
 forall n : nat, P n.
+
 
 Lemma imp_small_to_big `{EqDec Var} : forall c s1 s2, small_steps c s1 s2 -> big_step c s1 s2.
 Proof. Admitted.
