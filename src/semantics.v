@@ -102,22 +102,43 @@ Proof.
       * exact Hr.
 Qed.
 
+Lemma multi_skip `{EqDec Var} : forall n s1 s2, refl_trans n (skip, s1) (skip, s2) -> s1 = s2.
+Proof.
+  induction n; intros; inversion H0.
+  - reflexivity.
+  - destruct n1. inversion h1. discriminate.
+  - inversion h1. rewrite <-H1 in H2. inversion H2. rewrite H11, <-H9 in h2.
+    apply IHn. exact h2.
+Qed.
+
 Lemma imp_small_to_big `{EqDec Var} : forall n c s1 s2, refl_trans n (c, s1) (skip, s2) -> big_step c s1 s2.
 Proof.
-  induction n; intros.
-  - inversion H0.
+  induction n using strong_induction; intros.
+  destruct n.
+  - inversion H1.
     + constructor.
-    + apply PeanoNat.Nat.eq_add_0 in H2 as (H2 & H2'). rewrite H2 in h1. inversion h1.
-  - inversion H0. inversion h1.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-
+    + apply PeanoNat.Nat.eq_add_0 in H3 as (H3 & H3'). rewrite H3 in h1. inversion h1.
+  - inversion H1. inversion h1.
+    + eapply (H0 n2). lia. rewrite <-H11 in h2. exact h2.
+    + rewrite <-H11 in h2. rewrite <-(multi_skip _ _ _ h2), <-H12. constructor.
+    + rewrite <-H9 in H1. destruct (seq_split _ _ _ _ _ H1) as (m1 & m2 & s' & Hl & Hr & Hm1 & Hm2).
+      econstructor.
+      eapply (H0 _ Hm1). exact Hl.
+      eapply (H0 _ Hm2). rewrite <-H11. exact Hr.
+    + rewrite <-H9 in H1. destruct (seq_split _ _ _ _ _ H1) as (m1 & m2 & s' & Hl & Hr & Hm1 & Hm2).
+      econstructor.
+      eapply (H0 _ Hm1). exact Hl.
+      eapply (H0 _ Hm2). exact Hr.
+    + constructor. exact hb. eapply (H0 n2). lia. exact h2.
+    + apply BiteF. exact hb. eapply (H0 n2). lia. exact h2.
+    + rewrite <-H11 in h2.
+      rewrite <-H2 in H3. inversion H3. rewrite H13 in h2.
+      destruct (seq_split _ _ _ _ _ h2) as (m1 & m2 & s' & Hl & Hr & Hm1 & Hm2).
+      eapply BwhileT. exact hb.
+      eapply (H0 m1). lia. exact Hl.
+      eapply (H0 m2). lia. exact Hr.
+    + rewrite <-H11 in h2. rewrite <-(multi_skip _ _ _ h2). constructor. exact hb.
+Qed.
 
 Lemma imp_big_to_small `{EqDec Var} : forall c s1 s2, big_step c s1 s2 -> small_steps c s1 s2.
 Proof. Admitted.
