@@ -2,6 +2,7 @@ Require Import imp.
 Require Import Coq.Init.Nat.
 Require Import Classes.EquivDec.
 Require Import Coq.Arith.Wf_nat.
+Require Import Psatz.
 
 Axiom strong_induction:
 forall P : nat -> Prop,
@@ -32,14 +33,15 @@ Fixpoint eval_Bexp (b : Bexp) (s : State) : bool :=
 
 (* Small-step semantics *)
 (* We index the steps with associated costs *)
+
 Inductive small_step `{EqDec Var} : nat -> (Prog * State) -> (Prog * State) -> Prop :=
 | Sskip (s : State) : small_step 1 (skip, s) (skip, s)
 | Sass (s : State) (v : Var) (a : Aexp) :
     small_step 1 (ass v a, s) (skip, fun x => if x == v then (eval_Aexp a s) else s x)
 | SseqSkip (s1 s2 : State) (c1 c2 : Prog) (n : nat) (h : small_step n (c1, s1) (skip, s2)) :
-    small_step 2 (seq c1 c2, s1) (c2, s2)
+    small_step (1 + n) (seq c1 c2, s1) (c2, s2)
 | Sseq (s1 s2 : State) (c1 c1' c2 : Prog) (n : nat) (h : small_step n (c1, s1) (c1', s2)) (h' : c1' <> skip) :
-    small_step 1 (seq c1 c2, s1) (seq c1' c2, s2)
+    small_step (1 + n)(seq c1 c2, s1) (seq c1' c2, s2)
 | RiteT (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = true) :
     small_step 1 (ite b c1 c2, s) (c1, s)
 | RiteF (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = false) :
@@ -74,6 +76,31 @@ Inductive refl_trans `{EqDec Var} : nat  -> (Prog * State) -> (Prog * State) -> 
 | Refl (s : State) (c : Prog) : refl_trans 0 (c, s) (c, s)
 | Trans (s1 s2 s3 : State) (c1 c2 c3 : Prog) (n1 n2 : nat) (h1 : small_step n1 (c1, s1) (c2, s2))
     (h2 : refl_trans n2 (c2, s2) (c3, s3)) : refl_trans (n1 + n2) (c1, s1) (c3, s3).
+
+Lemma seq_split `{EqDec Var} :
+  forall n c1 c2 s1 s3,
+  refl_trans n (seq c1 c2, s1) (skip, s3) ->
+  exists n1 n2 s2, refl_trans n1 (c1, s1) (skip, s2)
+            /\ refl_trans n2 (c2, s2) (skip, s3)
+            /\ n1 < n
+            /\ n2 < n.
+Proof.
+  induction n using strong_induction; intros.
+  destruct n.
+  - inversion H1. apply PeanoNat.Nat.eq_add_0 in H3 as (H3 & H3'). rewrite H3 in h1. inversion h1.
+  - inversion H1. inversion h1.
+    + exists (n0 + 0), n2, s2.
+      repeat split; try lia.
+      * econstructor. exact h. constructor.
+      * exact h2.
+    + rewrite <-H2 in H3. inversion H3. rewrite <-H12 in h2.
+      assert (hn2 : n2 < S n) by lia.
+      destruct (H0 n2 hn2 _ _ _ _ h2) as (m1 & m2 & s' & Hl & Hr & Hm1 & Hm2).
+      exists (n0 + m1), m2, s'.
+      repeat split; try lia.
+      * econstructor. exact h. exact Hl.
+      * exact Hr.
+Qed.
 
 Lemma imp_small_to_big `{EqDec Var} : forall n c s1 s2, refl_trans n (c, s1) (skip, s2) -> big_step c s1 s2.
 Proof.
