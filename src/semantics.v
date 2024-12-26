@@ -42,13 +42,13 @@ Inductive small_step `{EqDec Var} : nat -> (Prog * State) -> (Prog * State) -> P
     small_step (1 + n) (seq c1 c2, s1) (c2, s2)
 | Sseq (s1 s2 : State) (c1 c1' c2 : Prog) (n : nat) (h : small_step n (c1, s1) (c1', s2)) (h' : c1' <> skip) :
     small_step (1 + n)(seq c1 c2, s1) (seq c1' c2, s2)
-| RiteT (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = true) :
+| SiteT (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = true) :
     small_step 1 (ite b c1 c2, s) (c1, s)
-| RiteF (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = false) :
+| SiteF (s : State) (b : Bexp) (c1 c2 : Prog) (hb : eval_Bexp b s = false) :
     small_step 1 (ite b c1 c2, s) (c2, s)
-| RwhileT (s : State) (b : Bexp) (c c : Prog) (hb : eval_Bexp b s = true) :
+| SwhileT (s : State) (b : Bexp) (c : Prog) (hb : eval_Bexp b s = true) :
     small_step 1 (while b c, s) (seq c (while b c), s)
-| RwhileF (s : State) (b : Bexp) (c c : Prog) (hb : eval_Bexp b s = false) :
+| SwhileF (s : State) (b : Bexp) (c : Prog) (hb : eval_Bexp b s = false) :
     small_step 1 (while b c, s) (skip, s).
 
 (* Big-step semantics *)
@@ -140,7 +140,76 @@ Proof.
     + rewrite <-H11 in h2. rewrite <-(multi_skip _ _ _ h2). constructor. exact hb.
 Qed.
 
-Lemma imp_big_to_small `{EqDec Var} : forall c s1 s2, big_step c s1 s2 -> small_steps c s1 s2.
-Proof. Admitted.
+Lemma skip_decidable : forall c, c = skip \/ c <> skip.
+Proof.
+  intro. destruct c; try (right; discriminate).
+  tauto.
+Qed.
 
-Theorem imp_small_iff_big `{EqDec Var} : forall c s1 s2, big_step c s1 s2 <-> small_steps c s1 s2.
+Lemma seq_trans `{EqDec Var} :
+  forall n1 n2 c1 c2 s1 s2 s3,
+  refl_trans n1 (c1, s1) (skip, s2) ->
+  refl_trans n2 (c2, s2) (skip, s3) ->
+  exists n, refl_trans n (seq c1 c2, s1) (skip, s3).
+Proof.
+  induction n1 using strong_induction; intros; inversion H1.
+  - econstructor.
+    econstructor.
+    constructor.
+    constructor.
+    exact H2.
+  - destruct (skip_decidable c3).
+    + econstructor.
+      econstructor.
+      constructor.
+      rewrite <-H4.
+      exact h1.
+      rewrite H4 in h2.
+      rewrite (multi_skip _ _ _ h2). exact H2.
+    + assert (Hn3 : n3 < n1). {destruct n0. inversion h1. lia.}
+      destruct (H0 n3 Hn3 _ _ _ _ _ _ h2 H2).
+      econstructor.
+      econstructor.
+      apply Sseq. exact h1.
+      exact H4.
+      exact H9.
+Qed.
+
+Lemma imp_big_to_small `{EqDec Var} : forall c s1 s2, big_step c s1 s2 -> exists n, refl_trans n (c, s1) (skip, s2).
+Proof.
+  intros. induction H0.
+  - exists 0. constructor.
+  - exists (1 + 0). econstructor. constructor. constructor.
+  - destruct IHbig_step1 as (n1 & Hn1).
+    destruct IHbig_step2 as (n2 & Hn2).
+    eapply seq_trans. exact Hn1. exact Hn2.
+  - destruct IHbig_step as (n & Hn).
+    exists (1 + n).
+    econstructor.
+    constructor. exact hb.
+    exact Hn.
+  - destruct IHbig_step as (n & Hn).
+    exists (1 + n).
+    econstructor.
+    apply SiteF. exact hb.
+    exact Hn.
+  - destruct IHbig_step1 as (n1 & Hn1).
+    destruct IHbig_step2 as (n2 & Hn2).
+    edestruct seq_trans. exact Hn1. exact Hn2.
+    econstructor.
+    econstructor.
+    constructor. exact hb. exact H0.
+  - exists (1 + 0).
+    econstructor.
+    apply SwhileF. exact hb.
+    constructor.
+Qed.
+
+
+Theorem imp_small_iff_big `{EqDec Var} : forall c s1 s2, big_step c s1 s2 <-> exists n, refl_trans n (c, s1) (skip, s2).
+Proof.
+  intros.
+  split.
+  apply imp_big_to_small.
+  intros (n & Hn). eapply imp_small_to_big. exact Hn.
+Qed.
