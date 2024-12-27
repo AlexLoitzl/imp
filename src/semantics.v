@@ -69,9 +69,6 @@ Inductive big_step `{EqDec Var} : Prog -> State -> State -> Prop :=
     (h1 : big_step c s1 s2) (h2 : big_step (while b c) s2 s3) : big_step (while b c) s1 s3
 | BwhileF (s : State) (b : Bexp) (c : Prog) (hb : eval_Bexp b s = false) : big_step (while b c) s s.
 
-(* We need to count skips otherwise we get weird programs like (skip ; skip) ; skip which need 0 steps
-   Maybe just do stupid case distinctions... *)
-
 Inductive refl_trans `{EqDec Var} : nat  -> (Prog * State) -> (Prog * State) -> Prop :=
 | Refl (s : State) (c : Prog) : refl_trans 0 (c, s) (c, s)
 | Trans (s1 s2 s3 : State) (c1 c2 c3 : Prog) (n1 n2 : nat) (h1 : small_step n1 (c1, s1) (c2, s2))
@@ -85,16 +82,14 @@ Lemma seq_split `{EqDec Var} :
             /\ n1 < n
             /\ n2 < n.
 Proof.
-  induction n using strong_induction; intros.
-  destruct n.
-  - inversion H1. apply PeanoNat.Nat.eq_add_0 in H3 as (H3 & H3'). rewrite H3 in h1. inversion h1.
-  - inversion H1. inversion h1.
+  induction n using strong_induction; intros. inversion H1.
+  - inversion h1.
     + exists (n0 + 0), n2, s2.
       repeat split; try lia.
       * econstructor. exact h. constructor.
       * exact h2.
-    + rewrite <-H2 in H3. inversion H3. rewrite <-H12 in h2.
-      assert (hn2 : n2 < S n) by lia.
+    + rewrite <-H12 in h2.
+      assert (hn2 : n2 <  n) by lia.
       destruct (H0 n2 hn2 _ _ _ _ h2) as (m1 & m2 & s' & Hl & Hr & Hm1 & Hm2).
       exists (n0 + m1), m2, s'.
       repeat split; try lia.
@@ -113,12 +108,9 @@ Qed.
 
 Lemma imp_small_to_big `{EqDec Var} : forall n c s1 s2, refl_trans n (c, s1) (skip, s2) -> big_step c s1 s2.
 Proof.
-  induction n using strong_induction; intros.
-  destruct n.
-  - inversion H1.
-    + constructor.
-    + apply PeanoNat.Nat.eq_add_0 in H3 as (H3 & H3'). rewrite H3 in h1. inversion h1.
-  - inversion H1. inversion h1.
+  induction n using strong_induction; intros; inversion H1.
+  - constructor.
+  - inversion h1.
     + eapply (H0 n2). lia. rewrite <-H11 in h2. exact h2.
     + rewrite <-H11 in h2. rewrite <-(multi_skip _ _ _ h2), <-H12. constructor.
     + rewrite <-H9 in H1. destruct (seq_split _ _ _ _ _ H1) as (m1 & m2 & s' & Hl & Hr & Hm1 & Hm2).
@@ -132,7 +124,6 @@ Proof.
     + constructor. exact hb. eapply (H0 n2). lia. exact h2.
     + apply BiteF. exact hb. eapply (H0 n2). lia. exact h2.
     + rewrite <-H11 in h2.
-      rewrite <-H2 in H3. inversion H3. rewrite H13 in h2.
       destruct (seq_split _ _ _ _ _ h2) as (m1 & m2 & s' & Hl & Hr & Hm1 & Hm2).
       eapply BwhileT. exact hb.
       eapply (H0 m1). lia. exact Hl.
