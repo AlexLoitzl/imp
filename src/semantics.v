@@ -157,7 +157,7 @@ Proof.
       exact h1.
       rewrite H4 in h2.
       rewrite (multi_skip _ _ _ h2). exact H2.
-    + assert (Hn3 : n3 < n1). {destruct n0. inversion h1. lia.}
+    + assert (Hn3 : n3 < n1). { destruct n0. inversion h1. lia. }
       destruct (H0 n3 Hn3 _ _ _ _ _ _ h2 H2).
       econstructor.
       econstructor.
