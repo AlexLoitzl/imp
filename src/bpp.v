@@ -28,9 +28,13 @@ Inductive ExecCtx :=
 | plusL_ctx (gpr : GuardedProcess)
 | plusR_ctx (gpl : GuardedProcess)
 | parallL_ctx (gpr : GuardedProcess)
-| parallR_ctx (gpl : GuardedProcess)
-| id (p : Process).
+| parallR_ctx (gpl : GuardedProcess).
 
-
-(* NOTE: We define subst for Process to be able to instatiate sequencing. For the proofs, we inted to make use of the coercion *)
-Definition subst (p : Process) (ctx : ExecCtx) : GuardedProcess := gp_zero.
+Definition subst (p : GuardedProcess) (ctx : ExecCtx) : GuardedProcess :=
+  match ctx with
+  | seq_ctx a => gp_seq a p
+  | plusL_ctx gpr => gp_plus p gpr
+  | plusR_ctx gpl => gp_plus gpl p
+  | parallL_ctx gpr => gp_parall p gpr
+  | parallR_ctx gpl => gp_parall gpl p
+  end.
