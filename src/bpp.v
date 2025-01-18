@@ -23,6 +23,8 @@ Coercion ebd : GuardedProcess >-> Process.
 
 Notation Env := ((IdP -> Process) * (IdG -> GuardedProcess)).
 
+(* TODO Is substitution working correctly?
+  I am completely ignoring the Identity, but that seems more like operational semantics *)
 Inductive ExecCtx :=
 | seq_ctx (a : Action)
 | plusL_ctx (gpr : GuardedProcess)
@@ -38,3 +40,29 @@ Definition subst (p : GuardedProcess) (ctx : ExecCtx) : GuardedProcess :=
   | parallL_ctx gpr => gp_parall p gpr
   | parallR_ctx gpl => gp_parall gpl p
   end.
+
+Inductive Tau : Set := tau.
+
+Notation Event := (sum Action Tau).
+
+(* TODO: I cannot seem to define this using mutual recursion because of the indices *)
+
+Inductive stepG : GuardedProcess -> Event -> GuardedProcess -> Prop :=
+| stepG_plusL (e : Event) (p1 p2 p1' : GuardedProcess) (h: stepG p1 e p1') :
+    stepG (gp_plus p1 p2) e (gp_plus p1' p2)
+| stepG_plusR (e : Event) (p1 p2 p2' : GuardedProcess) (h: stepG p2 e p2') :
+    stepG (gp_plus p1 p2) e (gp_plus p1 p2')
+| stepG_parallL (e : Event) (p1 p2 p1' : GuardedProcess) (h: stepG p1 e p1') :
+    stepG (gp_parall p1 p2) e (gp_plus p1' p2)
+| stepG_parallR (e : Event) (p1 p2 p2' : GuardedProcess) (h: stepG p2 e p2') :
+    stepG (gp_parall p1 p2) e (gp_plus p1 p2').
+
+Inductive step : Process -> Event -> Process -> Prop :=
+| step_plusL (e : Event) (p1 p2 p1' : Process) (h: step p1 e p1') :
+    step (p_plus p1 p2) e (p_plus p1' p2)
+| step_plusR (e : Event) (p1 p2 p2' : Process) (h: step p2 e p2') :
+    step (p_plus p1 p2) e (p_plus p1 p2')
+| step_parallL (e : Event) (p1 p2 p1' : Process) (h: step p1 e p1') :
+    step (p_parall p1 p2) e (p_plus p1' p2)
+| step_parallR (e : Event) (p1 p2 p2' : Process) (h: step p2 e p2') :
+    step (p_parall p1 p2) e (p_plus p1 p2').
